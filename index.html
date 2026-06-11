@@ -15,10 +15,11 @@
     .stat .k { font-size: .85em; color: #666; }
     table { width: 100%; border-collapse: collapse; margin: .5em 0 1.5em; font-size: .9em; }
     th, td { padding: .35em .6em; text-align: left; border-bottom: 1px solid #eee; }
-    th { background: #fafafa; font-weight: 600; user-select: none; }
+    th { background: #fafafa; font-weight: 600; user-select: none; -webkit-user-select: none;
+         touch-action: manipulation; }
     th:hover { background: #f0f0f5; }
-    th.sort-asc::after  { content: ' ▲'; color: #4a90e2; font-size: .8em; }
-    th.sort-desc::after { content: ' ▼'; color: #4a90e2; font-size: .8em; }
+    th.sort-asc::after  { content: ' B2'; color: #4a90e2; font-size: .8em; }
+    th.sort-desc::after { content: ' BC'; color: #4a90e2; font-size: .8em; }
     tr:hover { background: #f8f8ff; }
     .empty { color: #999; font-style: italic; }
     .footer { margin-top: 2em; padding-top: 1em; border-top: 1px solid #ddd;
@@ -97,18 +98,23 @@ Traceback (most recent call last):
     };
   }
   function attach(thead) {
-    var ths = thead.children[0].children;
+    // Find the header row (browser may put it in a synthetic thead)
+    var headRow = thead.rows[0] || thead.children[0];
+    if (!headRow) return;
+    var ths = headRow.children;
     for (var i = 0; i < ths.length; i++) {
       (function(idx, th) {
         if (th.classList.contains('nosort')) return;
         th.style.cursor = 'pointer';
-        th.title = 'Click to sort';
-        th.addEventListener('click', function() {
+        th.title = 'Tap to sort';
+        th.setAttribute('role', 'button');
+        th.setAttribute('tabindex', '0');
+        function doSort() {
           var table = th.closest('table');
+          if (!table || !table.tBodies[0]) return;
           var tbody = table.tBodies[0];
           var rows = Array.prototype.slice.call(tbody.rows);
           var asc = th.getAttribute('data-asc') !== '1';
-          // Reset other indicators in same thead
           for (var j = 0; j < ths.length; j++) {
             ths[j].removeAttribute('data-asc');
             ths[j].classList.remove('sort-asc', 'sort-desc');
@@ -117,15 +123,30 @@ Traceback (most recent call last):
           th.classList.add(asc ? 'sort-asc' : 'sort-desc');
           rows.sort(comparer(idx, asc));
           for (var k = 0; k < rows.length; k++) tbody.appendChild(rows[k]);
+        }
+        // Click works on desktop. Pointerdown works on mobile + desktop and
+        // is more reliable than click on iOS Safari (no 300ms delay).
+        th.addEventListener('click', doSort);
+        th.addEventListener('keydown', function(ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); doSort(); }
         });
       })(i, ths[i]);
     }
   }
-  document.addEventListener('DOMContentLoaded', function() {
+  function init() {
     var tables = document.querySelectorAll('table');
     for (var i = 0; i < tables.length; i++) {
       if (tables[i].tHead) attach(tables[i].tHead);
     }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+  // Also re-run on any kind of page show (bfcache restore on mobile, back/forward).
+  window.addEventListener('pageshow', function(ev) {
+    if (ev.persisted) init();
   });
 })();
 </script>
