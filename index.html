@@ -15,7 +15,10 @@
     .stat .k { font-size: .85em; color: #666; }
     table { width: 100%; border-collapse: collapse; margin: .5em 0 1.5em; font-size: .9em; }
     th, td { padding: .35em .6em; text-align: left; border-bottom: 1px solid #eee; }
-    th { background: #fafafa; font-weight: 600; }
+    th { background: #fafafa; font-weight: 600; user-select: none; }
+    th:hover { background: #f0f0f5; }
+    th.sort-asc::after  { content: ' ▲'; color: #4a90e2; font-size: .8em; }
+    th.sort-desc::after { content: ' ▼'; color: #4a90e2; font-size: .8em; }
     tr:hover { background: #f8f8ff; }
     .empty { color: #999; font-style: italic; }
     .footer { margin-top: 2em; padding-top: 1em; border-top: 1px solid #ddd;
@@ -65,4 +68,66 @@ Traceback (most recent call last):
   Workflow: <code>Quant Lab FX</code>. Pass criteria: ≥30 trades, win rate ≥30%, max DD ≤30%,
   risk_adjusted > 0.
 </div>
+
+<script>
+// Self-contained table sorter. No CDN, no framework.
+// Click a th to sort ascending; click again to descend. Disabled if <th> has class="nosort".
+(function() {
+  function getCellValue(tr, idx) {
+    var td = tr.children[idx];
+    if (!td) return '';
+    var raw = td.getAttribute('data-sort');
+    if (raw !== null) return raw;
+    return (td.textContent || '').trim();
+  }
+  function comparer(idx, asc) {
+    return function(a, b) {
+      var va = getCellValue(a, idx), vb = getCellValue(b, idx);
+      // Try numeric
+      var na = parseFloat(va), nb = parseFloat(vb);
+      if (!isNaN(na) && !isNaN(nb) && va !== '' && vb !== '') {
+        return (na - nb) * (asc ? 1 : -1);
+      }
+      // Try date
+      var da = Date.parse(va), db = Date.parse(vb);
+      if (!isNaN(da) && !isNaN(db)) {
+        return (da - db) * (asc ? 1 : -1);
+      }
+      return String(va).localeCompare(String(vb)) * (asc ? 1 : -1);
+    };
+  }
+  function attach(thead) {
+    var ths = thead.children[0].children;
+    for (var i = 0; i < ths.length; i++) {
+      (function(idx, th) {
+        if (th.classList.contains('nosort')) return;
+        th.style.cursor = 'pointer';
+        th.title = 'Click to sort';
+        th.addEventListener('click', function() {
+          var table = th.closest('table');
+          var tbody = table.tBodies[0];
+          var rows = Array.prototype.slice.call(tbody.rows);
+          var asc = th.getAttribute('data-asc') !== '1';
+          // Reset other indicators in same thead
+          for (var j = 0; j < ths.length; j++) {
+            ths[j].removeAttribute('data-asc');
+            ths[j].classList.remove('sort-asc', 'sort-desc');
+          }
+          th.setAttribute('data-asc', asc ? '1' : '0');
+          th.classList.add(asc ? 'sort-asc' : 'sort-desc');
+          rows.sort(comparer(idx, asc));
+          for (var k = 0; k < rows.length; k++) tbody.appendChild(rows[k]);
+        });
+      })(i, ths[i]);
+    }
+  }
+  document.addEventListener('DOMContentLoaded', function() {
+    var tables = document.querySelectorAll('table');
+    for (var i = 0; i < tables.length; i++) {
+      if (tables[i].tHead) attach(tables[i].tHead);
+    }
+  });
+})();
+</script>
+
 </body></html>
